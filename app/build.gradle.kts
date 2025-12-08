@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Supabase
     implementation(platform("io.github.jan-tennert.supabase:bom:2.5.1"))
