@@ -8,15 +8,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.tugas1.viewmodel.AuthViewModel
 
 @Composable
-fun LoginScreen(navController: NavController) {
-    var username by remember { mutableStateOf("") }
+fun LoginScreen(navController: NavController, authViewModel: AuthViewModel) {
+
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    val loading by authViewModel.loading.collectAsState()
+    val errorMessage by authViewModel.errorMessage.collectAsState()
+    val isAuthenticated by authViewModel.authState.collectAsState()
+
+    // Jika user sudah login (auto-login atau login sukses)
+    LaunchedEffect(isAuthenticated) {
+        if (isAuthenticated) {
+            navController.navigate("dashboard") {
+                popUpTo("login") { inclusive = true }
+            }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.secondaryContainer // warna background
+        color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column(
             modifier = Modifier
@@ -25,6 +40,7 @@ fun LoginScreen(navController: NavController) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Text(
                 "Login",
                 style = MaterialTheme.typography.headlineLarge,
@@ -34,11 +50,12 @@ fun LoginScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("Username") },
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth()
             )
+
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -49,33 +66,42 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Tombol login
             Button(
                 onClick = {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
+                    authViewModel.login(
+                        email,
+                        password,
+                        onSuccess = { /* handled by LaunchedEffect */ },
+                        onError = { /* error ditangani lewat errorMessage */ }
+                    )
+                },
+                enabled = !loading
             ) {
-                Text("Login")
+                Text(if (loading) "Loading..." else "Login")
             }
 
-
-
+            // Tampilkan error kalau ada
+            errorMessage?.let { msg ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = msg,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(onClick = { /* aksi lupa password */ }) {
+            TextButton(onClick = { /* lupa password */ }) {
                 Text("Lupa Password?")
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(onClick = {
-                navController.navigate("register")
-            }) {
+            TextButton(onClick = { navController.navigate("register") }) {
                 Text("Belum punya akun? Register di sini")
             }
-
         }
     }
 }

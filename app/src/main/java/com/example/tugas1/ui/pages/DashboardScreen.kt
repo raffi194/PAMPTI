@@ -26,8 +26,11 @@ fun DashboardScreen(navController: NavController, productViewModel: ProductViewM
         BottomNavItem("Home", Icons.Default.Home, "dashboard"),
         BottomNavItem("Cart", Icons.Default.ShoppingCart, "cart"),
         BottomNavItem("Wishlist", Icons.Default.Favorite, "wishlist"),
+        BottomNavItem("Chat", Icons.Default.Chat, "chat"),
+        BottomNavItem("Checkout", Icons.Default.Check, "checkout"),
         BottomNavItem("Profile", Icons.Default.Person, "profile")
     )
+
 
     Scaffold(
         bottomBar = {
