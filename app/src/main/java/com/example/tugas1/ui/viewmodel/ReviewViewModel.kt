@@ -1,7 +1,8 @@
 package com.example.tugas1.viewmodel
 
-import android.content.Context // DITAMBAHKAN
+import android.content.Context
 import android.net.Uri
+import android.webkit.MimeTypeMap // DITAMBAHKAN: Untuk mendapatkan ekstensi file
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,14 +28,13 @@ class ReviewViewModel : ViewModel() {
     val isLoading = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
 
-    // DIUBAH: Tambahkan parameter 'context' untuk mengakses ContentResolver
     fun submitReview(
-        context: Context, // DITAMBAHKAN
+        context: Context,
         orderId: String,
         rating: Int,
         comment: String,
         imageUris: List<Uri>,
-        onComplete: (Boolean) -> Unit // DITAMBAHKAN: Callback untuk status
+        onComplete: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
             isLoading.value = true
@@ -42,29 +42,30 @@ class ReviewViewModel : ViewModel() {
 
             try {
                 val userId = SupabaseClient.client.auth.currentUserOrNull()?.id
-                if (userId == null) {
-                    throw IllegalStateException("Pengguna tidak login.")
-                }
+                    ?: throw IllegalStateException("Pengguna tidak login.")
 
-                // --- BLOK YANG DIPERBAIKI ---
                 val imageUrls = mutableListOf<String>()
                 imageUris.forEach { uri ->
-                    // 1. Dapatkan stream dari Uri menggunakan ContentResolver
                     context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        // 2. Baca stream menjadi ByteArray
                         val byteArray = inputStream.readBytes()
-                        val fileName = "${userId}/${UUID.randomUUID()}"
 
-                        // 3. Upload ByteArray ke Supabase Storage
+                        // --- BLOK YANG DIPERBAIKI ---
+                        // 1. Dapatkan ekstensi file dari Uri (contoh: "jpg", "png")
+                        val fileExtension = getFileExtension(context, uri)
+
+                        // 2. Buat nama file yang unik DAN menyertakan ekstensi file
+                        val fileName = "${userId}/${UUID.randomUUID()}.$fileExtension"
+                        // --- AKHIR BLOK YANG DIPERBAIKI ---
+
+                        // Upload ByteArray ke Supabase Storage
                         val uploadResult = SupabaseClient.client.storage["review_images"].upload(
                             path = fileName,
-                            data = byteArray, // Sekarang kita menggunakan ByteArray
+                            data = byteArray,
                             upsert = true
                         )
                         imageUrls.add(uploadResult)
                     }
                 }
-                // --- AKHIR BLOK YANG DIPERBAIKI ---
 
                 val reviewPayload = ReviewPayload(
                     user_id = userId,
@@ -76,15 +77,23 @@ class ReviewViewModel : ViewModel() {
                 )
 
                 SupabaseClient.client.postgrest["reviews"].insert(reviewPayload)
-                onComplete(true) // Panggil callback sukses
+                onComplete(true) // Sukses
 
             } catch (e: Exception) {
-                errorMessage.value = "Gagal mengirim ulasan: ${e.message}"
-                e.printStackTrace() // Sangat membantu untuk debugging
-                onComplete(false) // Panggil callback gagal
+                // Pesan error yang lebih ramah pengguna
+                errorMessage.value = "Gagal mengirim ulasan. Silakan coba lagi."
+                e.printStackTrace()
+                onComplete(false) // Gagal
             } finally {
                 isLoading.value = false
             }
         }
+    }
+}
+
+// DITAMBAHKAN: Fungsi helper untuk mendapatkan ekstensi file dari URI
+private fun getFileExtension(context: Context, uri: Uri): String? {
+    return context.contentResolver.getType(uri)?.let { mimeType ->
+        MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
     }
 }
