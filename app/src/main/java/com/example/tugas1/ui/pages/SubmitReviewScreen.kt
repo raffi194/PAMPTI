@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
@@ -30,19 +29,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.tugas1.viewmodel.ReviewViewModel
+import kotlinx.coroutines.launch
 
 // --- Composable Utama untuk Layar Tulis Ulasan ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubmitReviewScreen(navController: NavController, orderId: String) {
+    // DITAMBAHKAN: Inisialisasi ViewModel, states, dan context
+    val reviewViewModel: ReviewViewModel = viewModel()
+    val isLoading by reviewViewModel.isLoading
+    val errorMessage by reviewViewModel.errorMessage
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
     // States untuk menampung input dari pengguna
     var rating by remember { mutableIntStateOf(0) }
     var comment by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
-    // Launcher untuk memilih gambar dari galeri
+    // Launcher untuk memilih gambar dari galeri (tidak berubah)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents(),
         onResult = { uris: List<Uri> ->
@@ -50,7 +60,20 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
         }
     )
 
+    // DITAMBAHKAN: Menampilkan pesan error jika ada menggunakan Snackbar
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Tulis Ulasan") },
@@ -69,19 +92,35 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
         // Tombol Kirim di bagian bawah
         bottomBar = {
             Button(
+                // DIUBAH: onClick sekarang memanggil ViewModel dengan semua parameter yang benar
                 onClick = {
-                    // TODO: Panggil fungsi ViewModel untuk mengirim review ke Supabase
-                    // viewModel.submitReview(orderId, rating, comment, selectedImages)
-                    // Setelah sukses, kembali ke halaman sebelumnya
-                    navController.popBackStack()
+                    reviewViewModel.submitReview(
+                        context = context,
+                        orderId = orderId,
+                        rating = rating,
+                        comment = comment,
+                        imageUris = selectedImages,
+                        onComplete = { success ->
+                            // Navigasi kembali HANYA jika submit berhasil
+                            if (success) {
+                                navController.popBackStack()
+                            }
+                            // Jika gagal, Snackbar akan menampilkan pesan error.
+                        }
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                // Tombol hanya aktif jika pengguna sudah memberi rating
-                enabled = rating > 0
+                // DIUBAH: Tombol dinonaktifkan saat loading atau rating belum diisi
+                enabled = rating > 0 && !isLoading
             ) {
-                Text("Kirim Ulasan", fontSize = 16.sp)
+                // DIUBAH: Menampilkan CircularProgressIndicator saat loading
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                } else {
+                    Text("Kirim Ulasan", fontSize = 16.sp)
+                }
             }
         }
     ) { innerPadding ->
@@ -125,7 +164,6 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
             ImageUploader(
                 selectedImages = selectedImages,
                 onAddImageClick = {
-                    // Buka galeri untuk memilih gambar (hanya tipe image)
                     imagePickerLauncher.launch("image/*")
                 }
             )
@@ -134,7 +172,7 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
 }
 
 
-// --- Composable untuk memilih rating bintang ---
+// --- Composable untuk memilih rating bintang --- (Tidak Berubah)
 @Composable
 fun StarRatingSelector(
     rating: Int,
@@ -158,7 +196,7 @@ fun StarRatingSelector(
     }
 }
 
-// --- Composable untuk mengunggah dan menampilkan gambar ---
+// --- Composable untuk mengunggah dan menampilkan gambar --- (Tidak Berubah)
 @Composable
 fun ImageUploader(
     selectedImages: List<Uri>,
