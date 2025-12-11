@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import com.example.tugas1.util.toRupiahFormat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -183,14 +184,6 @@ fun EmptyState(modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-// --- Fungsi pembantu ---
-fun Double.toRupiahFormat(): String {
-    val localeID = Locale("in", "ID")
-    val format = NumberFormat.getCurrencyInstance(localeID)
-    format.maximumFractionDigits = 0 // Tidak menampilkan desimal
-    return format.format(this)
 }
 
 fun getStatusColor(status: String): Color {

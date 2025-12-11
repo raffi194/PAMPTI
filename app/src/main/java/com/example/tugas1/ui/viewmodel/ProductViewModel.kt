@@ -1,60 +1,43 @@
 package com.example.tugas1.viewmodel
 
-import android.net.Uri
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import com.example.tugas1.model.Product
+import androidx.lifecycle.viewModelScope
+import com.example.tugas1.data.remote.SupabaseClient
+import com.example.tugas1.model.Product // Pastikan path ke model Product Anda benar
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class ProductViewModel : ViewModel() {
+    // State untuk menampung daftar produk
+    private val _products = MutableStateFlow<List<Product>>(emptyList())
+    val products = _products.asStateFlow()
 
-    private val _productList = MutableStateFlow(
-        listOf(
-            Product("1", "Laptop Pro", 12000000, "Laptop kencang untuk kerja", ""),
-            Product("2", "Keyboard Gaming", 350000, "RGB full warna", ""),
-            Product("3", "Mouse Wireless", 150000, "Nyaman dan ringan", "")
-        )
-    )
-    val productList: StateFlow<List<Product>> = _productList
+    // State untuk loading dan error
+    val isLoading = mutableStateOf(false)
+    val errorMessage = mutableStateOf<String?>(null)
 
-    // Ambil product berdasarkan ID
-    fun getProductById(id: String): Product? {
-        return _productList.value.firstOrNull { it.id == id }
+    init {
+        // Langsung panggil fungsi fetchProducts saat ViewModel pertama kali dibuat
+        fetchProducts()
     }
 
-    // Update product
-    fun updateProduct(
-        id: String,
-        name: String,
-        price: Int,
-        description: String,
-        imageUri: Uri?
-    ) {
-        val current = _productList.value.toMutableList()
-        val index = current.indexOfFirst { it.id == id }
-
-        if (index != -1) {
-            val old = current[index]
-
-            current[index] = old.copy(
-                name = name,
-                price = price,
-                description = description,
-                imageUrl = imageUri?.toString() ?: old.imageUrl
-            )
-
-            _productList.value = current
+    fun fetchProducts() {
+        viewModelScope.launch {
+            isLoading.value = true
+            errorMessage.value = null
+            try {
+                // Mengambil semua data dari tabel 'products' dan mengubahnya menjadi List<Product>
+                val productList = SupabaseClient.client.postgrest["products"].select().decodeList<Product>()
+                _products.value = productList
+            } catch (e: Exception) {
+                errorMessage.value = "Gagal memuat produk: ${e.message}"
+                e.printStackTrace()
+            } finally {
+                isLoading.value = false
+            }
         }
-    }
-
-    private val _cartItems = MutableStateFlow<List<Product>>(emptyList())
-    val cartItems: StateFlow<List<Product>> = _cartItems
-
-    fun addToCart(product: Product) {
-        _cartItems.value = _cartItems.value + product
-    }
-
-    fun clearCart() {
-        _cartItems.value = emptyList()
     }
 }
