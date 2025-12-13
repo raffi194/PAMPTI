@@ -3,6 +3,7 @@ plugins {
     kotlin("android")
     kotlin("plugin.compose") // versi otomatis sesuai project
     kotlin("kapt")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" // Versi mungkin beda, tidak masalah
 }
 
 android {

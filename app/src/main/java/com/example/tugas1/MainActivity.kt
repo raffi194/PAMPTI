@@ -22,6 +22,8 @@ import com.example.tugas1.ui.pages.*
 import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProductViewModel
 import com.example.tugas1.viewmodel.ProfileViewModel
+// DITAMBAHKAN: Baris import yang hilang untuk ProductDetailScreen
+import com.example.tugas1.ui.pages.ProductDetailScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +46,6 @@ fun MyApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // DIUBAH: Ganti "wishlist" menjadi "order_history"
     val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat", "profile")
 
     Scaffold(
@@ -62,7 +63,6 @@ fun MyApp() {
         )
     }
 
-    // Blok LaunchedEffect ini tidak perlu diubah, sudah benar.
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
             profileViewModel.loadProfile()
@@ -101,10 +101,7 @@ fun AppNavHost(
         // --- Graph Utama Aplikasi (Setelah Login) ---
         navigation(startDestination = "dashboard", route = "main_graph") {
             composable("dashboard") { DashboardScreen(navController, productViewModel) }
-
-            // DIUBAH: Ganti "wishlist" dengan "order_history"
             composable("order_history") { OrderHistoryScreen(navController) }
-
             composable("chat") { /* TODO: Buat ChatScreen */ }
 
             composable("profile") {
@@ -116,7 +113,8 @@ fun AppNavHost(
             }
 
             composable("cart") { CartScreen(navController, productViewModel) }
-            composable("checkout") { /* TODO: Buat CheckoutScreen */ }
+            // Perbaikan kecil: Pastikan CheckoutScreen dipanggil dengan benar
+            composable("checkout") { CheckoutScreen(navController, productViewModel) }
 
             composable("edit_profile") {
                 EditProfileScreen(
@@ -125,17 +123,31 @@ fun AppNavHost(
                 )
             }
 
+            // ... di dalam NavHost di MainActivity.kt
+            composable(
+                route = "product_detail/{productId}", // Rute dengan argumen
+                arguments = listOf(navArgument("productId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId")
+                if (productId != null) {
+                    // SEKARANG TIDAK ERROR LAGI karena sudah di-import
+                    ProductDetailScreen(
+                        navController = navController,
+                        productViewModel = productViewModel,
+                        productId = productId
+                    )
+                }
+            }
+
             composable(
                 route = "submit_review/{orderId}",
                 arguments = listOf(navArgument("orderId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val orderId = backStackEntry.arguments?.getString("orderId")
                 if (orderId != null) {
-                    // Panggil Composable yang baru kita buat
                     SubmitReviewScreen(navController = navController, orderId = orderId)
                 }
             }
-
         }
     }
 }

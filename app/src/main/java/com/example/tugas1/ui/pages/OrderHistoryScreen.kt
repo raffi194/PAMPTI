@@ -1,197 +1,150 @@
+// app/src/main/java/com/example/tugas1/ui/pages/OrderHistoryScreen.kt
+
 package com.example.tugas1.ui.pages
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import com.example.tugas1.util.toRupiahFormat
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import java.text.NumberFormat
+import com.example.tugas1.model.Order
+import com.example.tugas1.util.toRupiahFormat
+import com.example.tugas1.viewmodel.ProductViewModel
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Locale
+import java.util.TimeZone
 
-// --- Data Class untuk menampung data pesanan (sementara/dummy) ---
-// Nantinya, ini akan menjadi model yang sesuai dengan tabel 'orders' di Supabase
-data class Order(
-    val id: String,
-    val orderNumber: String,
-    val date: Date,
-    val totalPrice: Double,
-    val status: String // "Diproses", "Dikirim", "Selesai", "Dibatalkan"
-)
-
-// --- Composable Utama untuk Layar Riwayat Pesanan ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderHistoryScreen(navController: NavController) {
-    // Data dummy untuk ditampilkan di UI. Nanti kita akan mengambil ini dari ViewModel.
-    val dummyOrders = listOf(
-        Order("oid1", "INV/2025/12/01", Date(), 185000.0, "Selesai"),
-        Order("oid2", "INV/2025/11/28", Date(), 95000.0, "Dikirim"),
-        Order("oid3", "INV/2025/11/25", Date(), 320000.0, "Dibatalkan"),
-        Order("oid4", "INV/2025/11/22", Date(), 55000.0, "Selesai"),
-    )
+fun OrderHistoryScreen(
+    navController: NavController,
+    productViewModel: ProductViewModel = viewModel()
+) {
+    // Panggil fungsi untuk mengambil data saat layar pertama kali dibuka
+    LaunchedEffect(Unit) {
+        productViewModel.fetchOrderHistory()
+    }
+
+    val orderHistory by productViewModel.orderHistory.collectAsState()
+    val isLoading by productViewModel.isLoading
+    val errorMessage by productViewModel.errorMessage
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Riwayat Pesanan") },
                 navigationIcon = {
-                    // Tombol kembali, jika layar ini diakses dari halaman lain
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
+                }
             )
         }
-    ) { innerPadding ->
-        // Cek jika daftar pesanan kosong
-        if (dummyOrders.isEmpty()) {
-            EmptyState(modifier = Modifier.padding(innerPadding))
-        } else {
-            // Tampilkan daftar pesanan jika ada
-            LazyColumn(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    .background(Color.Gray.copy(alpha = 0.05f)),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(dummyOrders) { order ->
-                    OrderHistoryCard(
-                        order = order,
-                        onReviewClick = {
-                            // Navigasi ke halaman review, mengirimkan ID pesanan
-                            navController.navigate("submit_review/${order.id}")
-                        }
-                    )
+    ) { paddingValues ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues), contentAlignment = Alignment.Center) {
+            if (isLoading) {
+                CircularProgressIndicator()
+            } else if (errorMessage != null) {
+                Text("Error: $errorMessage")
+            } else if (orderHistory.isEmpty()) {
+                Text("Anda belum memiliki riwayat pesanan.")
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(orderHistory, key = { it.id }) { order ->
+                        OrderHistoryCard(order = order)
+                    }
                 }
             }
         }
     }
 }
 
-// --- Composable untuk setiap item pesanan di daftar ---
 @Composable
-fun OrderHistoryCard(order: Order, onReviewClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp)
-    ) {
+fun OrderHistoryCard(order: Order) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Bagian Atas: Nomor Pesanan dan Tanggal
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Order #${order.id.take(8)}", // Ambil 8 karakter pertama ID
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = order.status,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (order.status == "Pesanan Diterima") Color(0xFF008000) else Color.Gray
+                )
+            }
+            Text(
+                text = formatSupabaseDate(order.createdAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Tampilkan item-item di dalam order
+            order.items.forEach { item ->
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)) {
+                    Text("${item.quantity}x ", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        item.productDetails?.name ?: "Produk tidak ditemukan",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        (item.pricePerItem * item.quantity).toRupiahFormat(),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text("Total", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    text = order.orderNumber,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    order.totalPrice.toRupiahFormat(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Text(
-                    text = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(order.date),
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Divider()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Bagian Tengah: Total Harga dan Status
-            InfoRow(label = "Total Harga", value = order.totalPrice.toRupiahFormat())
-            Spacer(modifier = Modifier.height(8.dp))
-            InfoRow(label = "Status", value = order.status, valueColor = getStatusColor(order.status))
-
-            // Bagian Bawah: Tombol Aksi (jika perlu)
-            // Tombol "Beri Ulasan" hanya muncul jika status pesanan "Selesai"
-            if (order.status == "Selesai") {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onReviewClick,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Beri Ulasan")
-                }
             }
         }
     }
 }
 
-// --- Composable pembantu untuk menampilkan baris info ---
-@Composable
-fun InfoRow(label: String, value: String, valueColor: Color = Color.Black) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(text = label, fontSize = 14.sp, color = Color.Gray)
-        Text(text = value, fontSize = 14.sp, color = valueColor, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-// --- Composable untuk state saat tidak ada pesanan ---
-@Composable
-fun EmptyState(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.ReceiptLong,
-                contentDescription = "Riwayat Kosong",
-                modifier = Modifier.size(80.dp),
-                tint = Color.Gray.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Belum Ada Riwayat Pesanan",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Semua pesanan yang Anda buat akan muncul di sini.",
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-fun getStatusColor(status: String): Color {
-    return when (status) {
-        "Selesai" -> Color(0xFF008000) // Hijau
-        "Dikirim" -> Color(0xFF0000FF) // Biru
-        "Diproses" -> Color(0xFFFFA500) // Oranye
-        "Dibatalkan" -> Color.Red
-        else -> Color.Black
+// Fungsi helper untuk format tanggal
+fun formatSupabaseDate(dateString: String): String {
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.getDefault())
+        parser.timeZone = TimeZone.getTimeZone("UTC")
+        val date = parser.parse(dateString)
+        val formatter = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+        formatter.format(date!!)
+    } catch (e: Exception) {
+        dateString // Return original string if parsing fails
     }
 }
