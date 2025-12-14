@@ -46,7 +46,7 @@ fun DashboardScreen(
                             painter = painterResource(id = R.drawable.logo),
                             contentDescription = "Logo Toko",
                             modifier = Modifier
-                                .height(32.dp), // Beri tinggi eksplisit
+                                .height(100.dp), // Beri tinggi eksplisit
                             contentScale = ContentScale.Fit
                         )
                     }
@@ -97,17 +97,6 @@ fun DashboardContent(
     ) {
         // == Item 1: Banner Utama ==
         // Menggunakan span agar item ini memakan lebar 2 kolom.
-        item(span = { GridItemSpan(2) }) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), // Disesuaikan sedikit
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                OutlinedButton(onClick = { /*TODO*/ }) {
-                    Text("READ MORE")
-                }
-                Spacer(modifier = Modifier.height(32.dp)) // Jarak antar seksi
-            }
-        }
 
         // == Item 2: Judul "NEW ARRIVALS" ==
         item(span = { GridItemSpan(2) }) {
@@ -115,7 +104,7 @@ fun DashboardContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("NEW ARRIVALS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("SALE DIMULAI SEKARANG", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Produk terbaru dan terbaik hanya untuk Anda.",
@@ -186,16 +175,11 @@ fun DashboardContent(
                         color = Color.Gray,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(onClick = { /*TODO*/ }) {
-                        Text("READ MORE")
-                    }
                 }
             }
         }
     }
 }
-
 
 // ProductCardLive tidak perlu diubah, sudah benar.
 @OptIn(ExperimentalMaterial3Api::class)
