@@ -11,8 +11,8 @@ import io.github.jan.supabase.storage.Storage
 object SupabaseClient {
 
 
-    private const val SUPABASE_URL = "hhttps://rmizbnlbguddedpryumj.supabase.co"
-    private const val SUPABASE_KEY = "sb_publishable_KKluEDKAq_-qL6m_kTuFqg_nrVMtbh0"
+    private const val SUPABASE_URL = "https://wymgmzsgvfwtqxjylsqm.supabase.co"
+    private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5bWdtenNndmZ3dHF4anlsc3FtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMDIwNzQsImV4cCI6MjA4MDY3ODA3NH0.Cbhu632SkWWbpd-jg7XUMGSlyi7_eLDjmvaQlHkZ8dI"
 
     val client: SupabaseClient = createSupabaseClient(
         supabaseUrl = SUPABASE_URL,
@@ -25,4 +25,3 @@ object SupabaseClient {
 
     fun session(): UserSession? = client.auth.currentSessionOrNull()
 }
-

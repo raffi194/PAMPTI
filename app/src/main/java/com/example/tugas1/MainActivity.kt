@@ -3,30 +3,35 @@ package com.example.tugas1
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.navigation
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.tugas1.ui.LoginScreen
 import com.example.tugas1.ui.RegisterScreen
+import com.example.tugas1.ui.nav.AppBottomNavigation
 import com.example.tugas1.ui.pages.*
 import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProductViewModel
+import com.example.tugas1.viewmodel.ProfileViewModel
+// DITAMBAHKAN: Baris import yang hilang untuk ProductDetailScreen
+import com.example.tugas1.ui.pages.ProductDetailScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Cukup panggil MyApp, semua logika ada di dalamnya
-            MyApp()
+            MaterialTheme {
+                MyApp()
+            }
         }
     }
 }
@@ -34,46 +39,98 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MyApp() {
     val navController = rememberNavController()
-    val productViewModel: ProductViewModel = viewModel()
     val authViewModel: AuthViewModel = viewModel()
-
-    // Pantau status login dari ViewModel
+    val profileViewModel: ProfileViewModel = viewModel()
     val isAuthenticated by authViewModel.authState.collectAsState()
 
-    MaterialTheme {
-        // NavHost utama yang akan beralih antara dua grafik navigasi
-        NavHost(
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat", "profile")
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                AppBottomNavigation(navController = navController)
+            }
+        }
+    ) { innerPadding ->
+        AppNavHost(
+            modifier = Modifier.padding(innerPadding),
             navController = navController,
-            // Tentukan tujuan awal berdasarkan status login saat aplikasi pertama kali dibuka
-            startDestination = if (isAuthenticated) "main_graph" else "auth_graph"
-        ) {
-            // --- Grafik 1: Alur Autentikasi (jika belum login) ---
-            navigation(
-                startDestination = "login",
-                route = "auth_graph"
-            ) {
-                composable("login") { LoginScreen(navController, authViewModel) }
-                composable("register") { RegisterScreen(navController, authViewModel) }
+            authViewModel = authViewModel,
+            profileViewModel = profileViewModel
+        )
+    }
+
+    LaunchedEffect(isAuthenticated) {
+        if (isAuthenticated) {
+            profileViewModel.loadProfile()
+            if (navController.currentDestination?.parent?.route != "main_graph") {
+                navController.navigate("main_graph") { popUpTo(0) }
+            }
+        } else {
+            profileViewModel.clearProfile()
+            if (navController.currentDestination?.parent?.route != "auth_graph") {
+                navController.navigate("auth_graph") { popUpTo(0) }
+            }
+        }
+    }
+}
+
+@Composable
+fun AppNavHost(
+    modifier: Modifier = Modifier,
+    navController: androidx.navigation.NavHostController,
+    authViewModel: AuthViewModel,
+    profileViewModel: ProfileViewModel
+) {
+    val productViewModel: ProductViewModel = viewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = "auth_graph",
+        modifier = modifier
+    ) {
+        // --- Graph untuk Autentikasi (Login/Register) ---
+        navigation(startDestination = "login", route = "auth_graph") {
+            composable("login") { LoginScreen(navController, authViewModel) }
+            composable("register") { RegisterScreen(navController, authViewModel) }
+        }
+
+        // --- Graph Utama Aplikasi (Setelah Login) ---
+        navigation(startDestination = "dashboard", route = "main_graph") {
+            composable("dashboard") { DashboardScreen(navController, productViewModel) }
+            composable("order_history") { OrderHistoryScreen(navController) }
+            composable("chat") { /* TODO: Buat ChatScreen */ }
+
+            composable("profile") {
+                ProfileScreen(
+                    navController = navController,
+                    profileViewModel = profileViewModel,
+                    onLogout = { authViewModel.logout() }
+                )
             }
 
-            // --- Grafik 2: Alur Aplikasi Utama (jika sudah login) ---
-            navigation(
-                startDestination = "dashboard",
-                route = "main_graph"
-            ) {
-                composable("dashboard") { DashboardScreen(navController, productViewModel) }
-                composable("cart") { CartScreen(navController, productViewModel) }
-                composable("wishlist") { WishlistScreen(navController, productViewModel) }
-                composable("profile") { ProfileScreen(navController, authViewModel) }
-                composable("notification") { NotificationScreen(navController) }
-                composable("chat") { ChatScreen(navController) }
-                composable("checkout") { CheckoutScreen(navController, productViewModel) }
+            composable("cart") { CartScreen(navController, productViewModel) }
+            // Perbaikan kecil: Pastikan CheckoutScreen dipanggil dengan benar
+            composable("checkout") { CheckoutScreen(navController, productViewModel) }
 
-                composable(
-                    route = "productDetail/{productId}",
-                    arguments = listOf(navArgument("productId") { type = NavType.StringType })
-                ) { backStackEntry ->
-                    val productId = backStackEntry.arguments?.getString("productId") ?: ""
+            composable("edit_profile") {
+                EditProfileScreen(
+                    navController = navController,
+                    profileViewModel = profileViewModel
+                )
+            }
+
+            // ... di dalam NavHost di MainActivity.kt
+            composable(
+                route = "product_detail/{productId}", // Rute dengan argumen
+                arguments = listOf(navArgument("productId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId")
+                if (productId != null) {
+                    // SEKARANG TIDAK ERROR LAGI karena sudah di-import
                     ProductDetailScreen(
                         navController = navController,
                         productViewModel = productViewModel,
@@ -81,27 +138,14 @@ fun MyApp() {
                     )
                 }
             }
-        }
 
-        // --- PENGAWAS UTAMA: LaunchedEffect di luar NavHost ---
-        // Tugasnya adalah memindahkan pengguna antar grafik saat status login berubah.
-        LaunchedEffect(isAuthenticated) {
-            if (isAuthenticated) {
-                // Jika user berhasil login (isAuthenticated menjadi true),
-                // navigasi ke grafik utama.
-                navController.navigate("main_graph") {
-                    // Hapus grafik autentikasi dari backstack agar tidak bisa kembali ke login.
-                    popUpTo("auth_graph") { inclusive = true }
-                }
-            } else {
-                // Jika user logout (isAuthenticated menjadi false),
-                // navigasi kembali ke grafik autentikasi.
-                // Pengecekan ini untuk menghindari navigasi berulang jika sudah berada di halaman login.
-                if (navController.currentBackStackEntry?.destination?.parent?.route != "auth_graph") {
-                    navController.navigate("auth_graph") {
-                        // Hapus grafik utama dari backstack agar tidak bisa kembali ke dashboard.
-                        popUpTo("main_graph") { inclusive = true }
-                    }
+            composable(
+                route = "submit_review/{orderId}",
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId")
+                if (orderId != null) {
+                    SubmitReviewScreen(navController = navController, orderId = orderId)
                 }
             }
         }

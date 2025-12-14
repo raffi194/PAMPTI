@@ -3,6 +3,7 @@ plugins {
     kotlin("android")
     kotlin("plugin.compose") // versi otomatis sesuai project
     kotlin("kapt")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" // Versi mungkin beda, tidak masalah
 }
 
 android {
@@ -61,13 +62,19 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Supabase
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.1"))
+    // Menggunakan BOM untuk mengatur versi semua modul Supabase secara otomatis
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.4"))
+
+    // Modul-modul Supabase (TANPA nomor versi manual dan dengan nama -kt yang benar)
     implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
+
+    // Ktor (dibutuhkan oleh Supabase)
     implementation("io.ktor:ktor-client-android:2.3.6")
 
     // Testing
@@ -78,5 +85,4 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-
 }
