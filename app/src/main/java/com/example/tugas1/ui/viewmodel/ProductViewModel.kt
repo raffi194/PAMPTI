@@ -35,6 +35,34 @@ class ProductViewModel : ViewModel() {
     init {
         fetchProducts()
     }
+    // Tambahkan fungsi ini di dalam kelas ProductViewModel
+    fun updateOrderStatus(orderId: String, newStatus: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            isLoading.value = true
+            errorMessage.value = null
+            try {
+                // Menggunakan .update() untuk mengubah kolom 'status' pada baris yang cocok
+                SupabaseClient.client.postgrest["orders"]
+                    .update(mapOf("status" to newStatus)) {
+                        filter {
+                            eq("id", orderId)
+                        }
+                    }
+
+                // Setelah berhasil update, panggil fetchOrderHistory() untuk
+                // merefresh data di UI secara otomatis
+                fetchOrderHistory()
+                onComplete(true)
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorMessage.value = "Gagal mengubah status pesanan: ${e.message}"
+                onComplete(false)
+            } finally {
+                isLoading.value = false
+            }
+        }
+    }
 
     // --- KUNCI PENYELESAIAN ADA DI FUNGSI INI ---
     fun createOrder(onComplete: (success: Boolean, error: String?) -> Unit) {

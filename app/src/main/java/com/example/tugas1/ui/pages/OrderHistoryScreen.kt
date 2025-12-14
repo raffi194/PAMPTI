@@ -1,7 +1,8 @@
-// app/src/main/java/com/example/tugas1/ui/pages/OrderHistoryScreen.kt
+// PASTI BENAR: app/src/main/java/com/example/tugas1/ui/pages/OrderHistoryScreen.kt
 
 package com.example.tugas1.ui.pages
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,6 +39,7 @@ fun OrderHistoryScreen(
     val orderHistory by productViewModel.orderHistory.collectAsState()
     val isLoading by productViewModel.isLoading
     val errorMessage by productViewModel.errorMessage
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -50,10 +53,13 @@ fun OrderHistoryScreen(
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues), contentAlignment = Alignment.Center) {
-            if (isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues), contentAlignment = Alignment.Center
+        ) {
+            // Tampilkan loading indicator hanya jika data sedang dimuat dan list masih kosong
+            if (isLoading && orderHistory.isEmpty()) {
                 CircularProgressIndicator()
             } else if (errorMessage != null) {
                 Text("Error: $errorMessage")
@@ -65,7 +71,24 @@ fun OrderHistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(orderHistory, key = { it.id }) { order ->
-                        OrderHistoryCard(order = order)
+                        // --- KUNCI PERUBAHAN: Mengirimkan fungsi ke Card ---
+                        OrderHistoryCard(
+                            order = order,
+                            isLoading = isLoading,
+                            onUpdateStatus = { newStatus ->
+                                productViewModel.updateOrderStatus(order.id, newStatus) { success ->
+                                    if (success) {
+                                        Toast.makeText(context, "Status pesanan diubah!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Gagal mengubah status.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            onReviewClick = {
+                                // Navigasi ke halaman review dengan membawa ID pesanan
+                                navController.navigate("submit_review/${order.id}")
+                            }
+                        )
                     }
                 }
             }
@@ -74,22 +97,36 @@ fun OrderHistoryScreen(
 }
 
 @Composable
-fun OrderHistoryCard(order: Order) {
+fun OrderHistoryCard(
+    order: Order,
+    isLoading: Boolean,
+    onUpdateStatus: (newStatus: String) -> Unit,
+    onReviewClick: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Order #${order.id.take(8)}", // Ambil 8 karakter pertama ID
+                    text = "Order #${order.id.take(8)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+
+                // --- KUNCI PERUBAHAN: Warna status dinamis ---
                 Text(
                     text = order.status,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (order.status == "Pesanan Diterima") Color(0xFF008000) else Color.Gray
+                    fontWeight = FontWeight.SemiBold,
+                    color = when (order.status) {
+                        "Selesai" -> Color(0xFF2E7D32) // Hijau Tua
+                        "Dibatalkan" -> Color(0xFFC62828) // Merah Tua
+                        "Diproses" -> MaterialTheme.colorScheme.primary
+                        else -> Color.Gray
+                    }
                 )
             }
             Text(
@@ -101,9 +138,7 @@ fun OrderHistoryCard(order: Order) {
 
             // Tampilkan item-item di dalam order
             order.items.forEach { item ->
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
                     Text("${item.quantity}x ", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         item.productDetails?.name ?: "Produk tidak ditemukan",
@@ -132,11 +167,47 @@ fun OrderHistoryCard(order: Order) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+
+            // --- KUNCI PERUBAHAN: Tombol Aksi Dinamis ---
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Tampilkan tombol Batal & Pesanan Diterima HANYA jika status masih "Diproses"
+                if (order.status == "Diproses") {
+                    OutlinedButton(
+                        onClick = { onUpdateStatus("Dibatalkan") },
+                        enabled = !isLoading,
+                        modifier = Modifier.height(40.dp)
+                    ) {
+                        Text("Batalkan")
+                    }
+                    Button(
+                        onClick = { onUpdateStatus("Selesai") },
+                        enabled = !isLoading,
+                        modifier = Modifier.height(40.dp)
+                    ) {
+                        Text("Pesanan Diterima")
+                    }
+                }
+
+                // Tampilkan tombol Beri Ulasan HANYA jika status "Selesai"
+                if (order.status == "Selesai") {
+                    Button(
+                        onClick = onReviewClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)) // Warna hijau
+                    ) {
+                        Text("Beri Ulasan")
+                    }
+                }
+            }
         }
     }
 }
 
-// Fungsi helper untuk format tanggal
+// Fungsi helper untuk format tanggal (tidak berubah)
 fun formatSupabaseDate(dateString: String): String {
     return try {
         val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.getDefault())
