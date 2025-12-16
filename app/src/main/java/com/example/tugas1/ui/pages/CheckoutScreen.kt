@@ -1,30 +1,43 @@
-// app/src/main/java/com/example/tugas1/ui/pages/CheckoutScreen.kt
-
 package com.example.tugas1.ui.pages
 
-import android.widget.Toast
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import com.example.tugas1.R
+import coil.compose.rememberAsyncImagePainter
 import com.example.tugas1.model.CartItem
 import com.example.tugas1.util.toRupiahFormat
 import com.example.tugas1.viewmodel.ProductViewModel
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+
+
+data class PaymentMethod(
+    val id: String,
+    val name: String,
+    val description: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,140 +45,194 @@ fun CheckoutScreen(
     navController: NavController,
     productViewModel: ProductViewModel = viewModel()
 ) {
+
+    // ===== CART SNAPSHOT =====
     val cartItems by productViewModel.cartItems.collectAsState()
-    val finalTotalPrice = cartItems.sumOf { it.product.price * it.quantity }
-    val isLoading by productViewModel.isLoading
-    val context = LocalContext.current
+    val cartSnapshot: List<CartItem> = remember { cartItems }
+
+    val totalPrice = cartSnapshot.sumOf {
+        it.product.price * it.quantity
+    }
+
+    // ===== ORDER SUCCESS OBSERVER =====
+    val orderSuccess by productViewModel.orderSuccess.collectAsState()
+
+    LaunchedEffect(orderSuccess) {
+        if (orderSuccess) {
+            navController.navigate("order_success") {
+                popUpTo("cart") { inclusive = true }
+            }
+            productViewModel.resetOrderSuccess()
+        }
+    }
+
+    // ===== UI STATE =====
+    var selectedPaymentId by remember { mutableStateOf<String?>(null) }
+    var paymentProofUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickImageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+            paymentProofUri = it
+        }
+
+    val paymentMethods = listOf(
+        PaymentMethod("bank", "Transfer Bank", "BCA • BRI • Mandiri • BNI"),
+        PaymentMethod("ewallet", "E-Wallet", "OVO • DANA • GoPay • ShopeePay"),
+        PaymentMethod("cod", "COD", "Bayar di tempat")
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Checkout") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        }
-    ) { paddingValues ->
+        },
+        containerColor = Color(0xFFFAFAFA)
+    ) { padding ->
 
-        if (cartItems.isEmpty() && !isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Tidak ada item untuk di-checkout.")
-            }
-        } else {
-            Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text("Ringkasan Pesanan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                    items(cartItems, key = { it.product.id }) { cartItem ->
-                        CheckoutItemCard(cartItem = cartItem)
+
+                // ===== ALAMAT =====
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Alamat Pengiriman", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Naylah Yasmin\nJl. Veteran No.1\nMalang")
                     }
                 }
 
-                Surface(modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Total Pembayaran:", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = finalTotalPrice.toRupiahFormat(),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Spacer(Modifier.height(16.dp))
-
-                        // --- INI TOMBOL YANG DITANYAKAN ---
-                        Button(
-                            // Tombol akan non-aktif saat proses loading berlangsung
-                            enabled = !isLoading,
-                            onClick = {
-                                // Panggil fungsi createOrder dari ViewModel
-                                productViewModel.createOrder { success, error ->
-                                    if (success) {
-                                        Toast.makeText(context, "Pesanan berhasil dibuat!", Toast.LENGTH_SHORT).show()
-                                        // Arahkan ke halaman utama/dashboard dan hapus semua backstack
-                                        navController.navigate("dashboard") {
-                                            popUpTo(navController.graph.startDestinationId) {
-                                                inclusive = true
-                                            }
-                                            launchSingleTop = true
-                                        }
-                                    } else {
-                                        // Tampilkan pesan error jika gagal
-                                        Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(50.dp)
-                        ) {
-                            // Tampilkan loading indicator di dalam tombol jika sedang loading
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 3.dp
+                // ===== PAYMENT =====
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Metode Pembayaran", fontWeight = FontWeight.Bold)
+                        paymentMethods.forEach {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedPaymentId = it.id }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (selectedPaymentId == it.id)
+                                                MaterialTheme.colorScheme.primary
+                                            else Color.LightGray
+                                        )
                                 )
-                            } else {
-                                Text("Konfirmasi dan Bayar")
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(it.name)
+                                    Text(it.description, fontSize = 12.sp, color = Color.Gray)
+                                }
                             }
                         }
                     }
                 }
+
+                // ===== UPLOAD =====
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Bukti Pembayaran", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(
+                                onClick = { pickImageLauncher.launch("image/*") }
+                            ) {
+                                Icon(Icons.Default.Image, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Pilih Gambar")
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            paymentProofUri?.let {
+                                Image(
+                                    painter = rememberAsyncImagePainter(it),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(60.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ===== RINGKASAN =====
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Ringkasan Belanja", fontWeight = FontWeight.Bold)
+                        cartSnapshot.forEach {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("${it.product.name} x${it.quantity}")
+                                Text((it.product.price * it.quantity).toRupiahFormat())
+                            }
+                        }
+                        Divider(Modifier.padding(vertical = 8.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Total", fontWeight = FontWeight.Bold)
+                            Text(totalPrice.toRupiahFormat(), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // ===== BUTTON =====
+            val context = LocalContext.current
+
+            Button(
+                enabled = selectedPaymentId != null && paymentProofUri != null,
+                onClick = {
+                    val uri = paymentProofUri ?: return@Button
+
+                    productViewModel.uploadPaymentProof(
+                        context = context,
+                        imageUri = uri,
+                        onSuccess = {
+                            // LOGIC LAMA TETAP DIPAKAI
+                            productViewModel.createOrder()
+                            navController.navigate("order_success")
+                        },
+                        onError = { error ->
+                            Toast.makeText(
+                                context,
+                                "Upload gagal: ${error.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .height(48.dp)
+            ) {
+                Text("Buat Pesanan")
             }
         }
-    }
-}
-
-// Composable untuk menampilkan setiap item di halaman checkout
-@Composable
-fun CheckoutItemCard(cartItem: CartItem) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = cartItem.product.imageUrl,
-            contentDescription = cartItem.product.name,
-            modifier = Modifier.size(64.dp).padding(end = 16.dp),
-            contentScale = ContentScale.Crop,
-            error = painterResource(id = R.drawable.ic_launcher_background)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = cartItem.product.name,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "Jumlah: ${cartItem.quantity}",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Text(
-            text = (cartItem.product.price * cartItem.quantity).toRupiahFormat(),
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
