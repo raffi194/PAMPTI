@@ -7,179 +7,226 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     navController: NavHostController,
-    // 1. Parameter authViewModel dihapus
-    // authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
-    // 2. Tambahkan lambda untuk aksi logout
     onLogout: () -> Unit
 ) {
     val profile by profileViewModel.profile.collectAsState()
     val loading by profileViewModel.loading.collectAsState()
     val context = LocalContext.current
 
+    // 🔴 STATE UNTUK AVATAR LOKAL (INI YANG PENTING)
+    var localAvatarUri by remember { mutableStateOf<Uri?>(null) }
+
+    LaunchedEffect(Unit) {
+        profileViewModel.loadProfile()
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri: Uri? ->
-            uri?.let {
-                context.contentResolver.openInputStream(it)?.use { inputStream ->
-                    val imageBytes = inputStream.readBytes()
-                    profileViewModel.uploadAvatar(imageBytes)
-                }
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // tampilkan langsung di UI
+            localAvatarUri = it
+
+            // upload ke server
+            context.contentResolver.openInputStream(it)?.use { input ->
+                profileViewModel.uploadAvatar(input.readBytes())
             }
         }
-    )
-
-    // Logika auto-navigate saat !isAuthenticated sudah dipindahkan ke MainActivity, jadi bisa dihapus dari sini.
-    // LaunchedEffect(isAuthenticated) { ... }
+    }
 
     Scaffold(
         topBar = {
-            // Kita bisa menggunakan TopAppBar bawaan Scaffold di sini
             TopAppBar(
                 title = { Text("Profile") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                actions = {
+                    IconButton(
+                        onClick = { navController.navigate("edit_profile") }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile"
+                        )
+                    }
+                }
             )
         }
-    ) { paddingValues ->
-        Column(
+    ) { padding ->
+
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(padding)
+                .background(Color(0xFFF8F5FB)),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (loading && profile == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Image(
-                        // Langsung gunakan avatar_url dari model Profile
-                        painter = rememberAsyncImagePainter(
-                            model = profile?.avatar_url ?: "https://i.pravatar.cc/150"
-                        ),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(Color.LightGray),
-                        contentScale = ContentScale.Crop
+
+            /* ================= HEADER PROFILE ================= */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(contentAlignment = Alignment.BottomEnd) {
+
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                model = localAvatarUri
+                                    ?: profile?.avatar_url
+                                    ?: "https://i.pravatar.cc/150"
+                            ),
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(110.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD1C4E9)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Avatar",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF7E57C2))
+                                .padding(6.dp)
+                                .clickable {
+                                    imagePickerLauncher.launch("image/*")
+                                },
+                            tint = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = profile?.fullName ?: "-",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
                     )
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Picture",
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(6.dp)
-                            .clickable {
-                                imagePickerLauncher.launch("image/*")
-                            },
-                        tint = Color.White
+
+                    Text(
+                        text = "@${profile?.username ?: "-"}",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            /* ================= ACCOUNT SECTION ================= */
+            item {
+                ProfileMenuSection(title = "Account")
+            }
 
-                Text(
-                    text = profile?.fullName ?: "Nama Belum Diatur",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "@${profile?.username ?: "username"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Menggunakan route "edit_profile" yang sudah kita definisikan di NavHost
+            item {
                 ProfileMenuItem(
-                    icon = Icons.Default.Person,
-                    title = "Edit Profile",
-                    onClick = { navController.navigate("edit_profile") }
+                    title = "Tambah Produk",
+                    onClick = { navController.navigate("dashboard") }
                 )
-                ProfileMenuItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notification",
-                    onClick = { /* navController.navigate("notification") */ }
-                )
-                ProfileMenuItem(
-                    icon = Icons.Default.PinDrop,
-                    title = "Shipping Address",
-                    onClick = { /* TODO */ }
-                )
-                ProfileMenuItem(
-                    icon = Icons.Default.Key,
-                    title = "Change Password",
-                    onClick = { /* TODO */ }
-                )
+            }
 
-                Spacer(modifier = Modifier.weight(1f))
+            item {
+                ProfileMenuItem(
+                    title = "Order History",
+                    onClick = { navController.navigate("order_history") }
+                )
+            }
 
-                // 3. Tombol Sign Out sekarang memanggil onLogout lambda
+            item {
+                ProfileMenuItem(
+                    title = "Chat Support",
+                    onClick = { navController.navigate("chat") }
+                )
+            }
+
+            /* ================= ACTION ================= */
+            item {
+                Spacer(modifier = Modifier.height(172.dp))
+            }
+
+            item {
                 Button(
                     onClick = onLogout,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEEEEE))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFEEEEE)
+                    )
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign Out", tint = Color.Red)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sign Out", fontSize = 16.sp, color = Color.Red)
-                    }
+                    Text("Logout", color = Color.Red)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
-// Composable ProfileMenuItem tidak ada perubahan
+/* ================= REUSABLE COMPONENT ================= */
+
 @Composable
-fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
-    Row(
+fun ProfileMenuSection(title: String) {
+    Text(
+        text = title,
+        fontWeight = FontWeight.SemiBold,
+        style = MaterialTheme.typography.labelLarge,
+        color = Color(0xFF6A1B9A)
+    )
+}
+
+@Composable
+fun ProfileMenuItem(
+    title: String,
+    onClick: () -> Unit
+) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
     ) {
-        Icon(imageVector = icon, contentDescription = title, tint = Color.Gray)
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(text = title, style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.weight(1f))
-        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = Color.Gray)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.Medium
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.Gray
+            )
+        }
     }
 }

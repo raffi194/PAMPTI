@@ -46,7 +46,7 @@ fun MyApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat", "profile")
+    val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat")
 
     Scaffold(
         bottomBar = {
