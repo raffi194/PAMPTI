@@ -103,6 +103,9 @@ fun AppNavHost(
             composable("dashboard") { DashboardScreen(navController, productViewModel) }
             composable("order_history") { OrderHistoryScreen(navController) }
             composable("chat") { /* TODO: Buat ChatScreen */ }
+            composable("order_success") {
+                OrderSuccessScreen(navController)
+            }
 
             composable("profile") {
                 ProfileScreen(
