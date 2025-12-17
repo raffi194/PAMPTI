@@ -1,5 +1,6 @@
 package com.example.tugas1.ui.pages
 
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ import com.example.tugas1.model.Product
 import com.example.tugas1.ui.nav.AppBottomNavigation
 import com.example.tugas1.util.toRupiahFormat
 import com.example.tugas1.viewmodel.ProductViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +78,7 @@ fun DashboardScreen(
     }
 }
 
+
 @Composable
 fun DashboardContent(
     productViewModel: ProductViewModel,
@@ -84,6 +87,7 @@ fun DashboardContent(
     val products by productViewModel.products.collectAsState()
     val isLoading by productViewModel.isLoading
     val errorMessage by productViewModel.errorMessage
+
 
     // KUNCI PERBAIKAN: Mengganti LazyColumn dengan LazyVerticalGrid sebagai root layout.
     // Ini adalah cara yang benar untuk memiliki item yang span penuh dan item grid.
@@ -97,6 +101,7 @@ fun DashboardContent(
     ) {
         // == Item 1: Banner Utama ==
         // Menggunakan span agar item ini memakan lebar 2 kolom.
+
 
         // == Item 2: Judul "NEW ARRIVALS" ==
         item(span = { GridItemSpan(2) }) {
@@ -116,6 +121,7 @@ fun DashboardContent(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+
 
         // == Item 3: Grid Produk ==
         if (isLoading) {
@@ -152,6 +158,7 @@ fun DashboardContent(
             }
         }
 
+
         // == Item 4: Banner Diskon ==
         item(span = { GridItemSpan(2) }) {
             Column(
@@ -180,6 +187,7 @@ fun DashboardContent(
         }
     }
 }
+
 
 // ProductCardLive tidak perlu diubah, sudah benar.
 @OptIn(ExperimentalMaterial3Api::class)

@@ -33,7 +33,7 @@ import com.example.tugas1.viewmodel.ProductViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CartScreen(navController: NavController, productViewModel: ProductViewModel = viewModel()) {
+fun CartScreen(navController: NavController, productViewModel: ProductViewModel) {
 
     val cartItems by productViewModel.cartItems.collectAsState()
     var selectedItemIds by remember(cartItems) { mutableStateOf(cartItems.map { it.product.id }.toSet()) }

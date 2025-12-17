@@ -147,7 +147,7 @@ fun ProfileScreen(
 
             item {
                 ProfileMenuItem(
-                    title = "Tambah Produk",
+                    title = "Home",
                     onClick = { navController.navigate("dashboard") }
                 )
             }

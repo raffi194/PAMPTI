@@ -1,4 +1,4 @@
-// PASTI BENAR: app/src/main/java/com/example/tugas1/ui/pages/OrderHistoryScreen.kt
+// app/src/main/java/com/example/tugas1/ui/pages/OrderHistoryScreen.kt
 
 package com.example.tugas1.ui.pages
 
@@ -21,17 +21,19 @@ import androidx.navigation.NavController
 import com.example.tugas1.model.Order
 import com.example.tugas1.util.toRupiahFormat
 import com.example.tugas1.viewmodel.ProductViewModel
+import com.example.tugas1.viewmodel.ReviewViewModel
 import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
     navController: NavController,
-    productViewModel: ProductViewModel = viewModel()
+    productViewModel: ProductViewModel
 ) {
-    // Panggil fungsi untuk mengambil data saat layar pertama kali dibuka
+    val reviewViewModel: ReviewViewModel = viewModel()
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         productViewModel.fetchOrderHistory()
     }
@@ -39,7 +41,6 @@ fun OrderHistoryScreen(
     val orderHistory by productViewModel.orderHistory.collectAsState()
     val isLoading by productViewModel.isLoading
     val errorMessage by productViewModel.errorMessage
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -52,41 +53,90 @@ fun OrderHistoryScreen(
                 }
             )
         }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues), contentAlignment = Alignment.Center
-        ) {
-            // Tampilkan loading indicator hanya jika data sedang dimuat dan list masih kosong
-            if (isLoading && orderHistory.isEmpty()) {
-                CircularProgressIndicator()
-            } else if (errorMessage != null) {
-                Text("Error: $errorMessage")
-            } else if (orderHistory.isEmpty()) {
-                Text("Anda belum memiliki riwayat pesanan.")
-            } else {
+    ) { padding ->
+        when {
+            isLoading && orderHistory.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            errorMessage != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Error: $errorMessage")
+                }
+            }
+
+            orderHistory.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Anda belum memiliki riwayat pesanan.")
+                }
+            }
+
+            else -> {
                 LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(orderHistory, key = { it.id }) { order ->
-                        // --- KUNCI PERUBAHAN: Mengirimkan fungsi ke Card ---
+
+                        val productId = order.items.firstOrNull()?.productId
+                        var isReviewed by remember { mutableStateOf(false) }
+
+                        LaunchedEffect(order.id) {
+                            if (productId != null) {
+                                isReviewed = reviewViewModel.hasReviewed(
+                                    orderId = order.id,
+                                    productId = productId
+                                )
+                            }
+                        }
+
                         OrderHistoryCard(
                             order = order,
                             isLoading = isLoading,
+                            isReviewed = isReviewed,
                             onUpdateStatus = { newStatus ->
                                 productViewModel.updateOrderStatus(order.id, newStatus) { success ->
-                                    if (success) {
-                                        Toast.makeText(context, "Status pesanan diubah!", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Gagal mengubah status.", Toast.LENGTH_LONG).show()
-                                    }
+                                    Toast.makeText(
+                                        context,
+                                        if (success) "Status diubah"
+                                        else "Gagal mengubah status",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             },
                             onReviewClick = {
-                                // Navigasi ke halaman review dengan membawa ID pesanan
-                                navController.navigate("submit_review/${order.id}")
+                                if (productId != null) {
+                                    navController.navigate(
+                                        "submit_review/${order.id}/$productId"
+                                    )
+                                }
+                            },
+                            onViewReviewClick = {
+                                if (productId != null) {
+                                    navController.navigate(
+                                        "review_result/${order.id}/$productId"
+                                    )
+                                }
                             }
                         )
                     }
@@ -100,105 +150,74 @@ fun OrderHistoryScreen(
 fun OrderHistoryCard(
     order: Order,
     isLoading: Boolean,
-    onUpdateStatus: (newStatus: String) -> Unit,
-    onReviewClick: () -> Unit
+    isReviewed: Boolean,
+    onUpdateStatus: (String) -> Unit,
+    onReviewClick: () -> Unit,
+    onViewReviewClick: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Order #${order.id.take(8)}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
 
-                // --- KUNCI PERUBAHAN: Warna status dinamis ---
-                Text(
-                    text = order.status,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = when (order.status) {
-                        "Selesai" -> Color(0xFF2E7D32) // Hijau Tua
-                        "Dibatalkan" -> Color(0xFFC62828) // Merah Tua
-                        "Diproses" -> MaterialTheme.colorScheme.primary
-                        else -> Color.Gray
-                    }
-                )
-            }
             Text(
-                text = formatSupabaseDate(order.createdAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                text = "Order #${order.id.take(8)}",
+                fontWeight = FontWeight.Bold
             )
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Tampilkan item-item di dalam order
+            Text(
+                text = order.status,
+                color = when (order.status) {
+                    "Selesai" -> Color(0xFF2E7D32)
+                    "Dibatalkan" -> Color(0xFFC62828)
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             order.items.forEach { item ->
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                    Text("${item.quantity}x ", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        item.productDetails?.name ?: "Produk tidak ditemukan",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        (item.pricePerItem * item.quantity).toRupiahFormat(),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("${item.quantity}x ${item.productDetails?.name ?: "Produk"}")
+                    Text((item.pricePerItem * item.quantity).toRupiahFormat())
                 }
             }
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Total", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    order.totalPrice.toRupiahFormat(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
 
-            // --- KUNCI PERUBAHAN: Tombol Aksi Dinamis ---
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Tampilkan tombol Batal & Pesanan Diterima HANYA jika status masih "Diproses"
-                if (order.status == "Diproses") {
+            Text(
+                "Total: ${order.totalPrice.toRupiahFormat()}",
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (order.status == "Diproses") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = { onUpdateStatus("Dibatalkan") },
-                        enabled = !isLoading,
-                        modifier = Modifier.height(40.dp)
+                        enabled = !isLoading
                     ) {
                         Text("Batalkan")
                     }
                     Button(
                         onClick = { onUpdateStatus("Selesai") },
-                        enabled = !isLoading,
-                        modifier = Modifier.height(40.dp)
+                        enabled = !isLoading
                     ) {
                         Text("Pesanan Diterima")
                     }
                 }
+            }
 
-                // Tampilkan tombol Beri Ulasan HANYA jika status "Selesai"
-                if (order.status == "Selesai") {
-                    Button(
-                        onClick = onReviewClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)) // Warna hijau
-                    ) {
+            if (order.status == "Selesai") {
+                Spacer(modifier = Modifier.height(8.dp))
+                if (isReviewed) {
+                    OutlinedButton(onClick = onViewReviewClick) {
+                        Text("Lihat Ulasan")
+                    }
+                } else {
+                    Button(onClick = onReviewClick) {
                         Text("Beri Ulasan")
                     }
                 }
@@ -207,15 +226,17 @@ fun OrderHistoryCard(
     }
 }
 
-// Fungsi helper untuk format tanggal (tidak berubah)
 fun formatSupabaseDate(dateString: String): String {
     return try {
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.getDefault())
+        val parser = SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+            Locale.getDefault()
+        )
         parser.timeZone = TimeZone.getTimeZone("UTC")
         val date = parser.parse(dateString)
         val formatter = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
         formatter.format(date!!)
     } catch (e: Exception) {
-        dateString // Return original string if parsing fails
+        dateString
     }
 }

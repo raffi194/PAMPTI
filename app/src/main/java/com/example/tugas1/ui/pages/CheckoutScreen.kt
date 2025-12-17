@@ -43,7 +43,7 @@ data class PaymentMethod(
 @Composable
 fun CheckoutScreen(
     navController: NavController,
-    productViewModel: ProductViewModel = viewModel()
+    productViewModel: ProductViewModel
 ) {
 
     // ===== CART SNAPSHOT =====
@@ -114,7 +114,7 @@ fun CheckoutScreen(
                     Column(Modifier.padding(16.dp)) {
                         Text("Alamat Pengiriman", fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Text("Naylah Yasmin\nJl. Veteran No.1\nMalang")
+                        Text("Nama Penerima: Naylah Yasmin\nAlamat: Jl. Veteran No.1\nKota Malang, Jawa Timur")
                     }
                 }
 
@@ -213,7 +213,6 @@ fun CheckoutScreen(
                         context = context,
                         imageUri = uri,
                         onSuccess = {
-                            // LOGIC LAMA TETAP DIPAKAI
                             productViewModel.createOrder()
                             navController.navigate("order_success")
                         },

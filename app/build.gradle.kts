@@ -6,18 +6,20 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" // Versi mungkin beda, tidak masalah
 }
 
+
 android {
     namespace = "com.example.tugas1"
     compileSdk = 36
 
+
     defaultConfig {
         applicationId = "com.example.tugas1"
         minSdk = 26
-        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
 
     buildTypes {
         release {
@@ -29,29 +31,35 @@ android {
         }
     }
 
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+
     kotlinOptions {
         jvmTarget = "11"
     }
 
+
     buildFeatures {
         compose = true
     }
+
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.3" // versi kompatibel dengan Compose BOM 2025.12.00
     }
 }
 
+
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.activity:activity-compose:1.8.2")
+
 
     // Jetpack Compose
     implementation(platform("androidx.compose:compose-bom:2025.12.00"))
@@ -64,9 +72,11 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
+
     // Supabase
     // Menggunakan BOM untuk mengatur versi semua modul Supabase secara otomatis
     implementation(platform("io.github.jan-tennert.supabase:bom:2.5.4"))
+
 
     // Modul-modul Supabase (TANPA nomor versi manual dan dengan nama -kt yang benar)
     implementation("io.github.jan-tennert.supabase:gotrue-kt")
@@ -74,8 +84,10 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
 
+
     // Ktor (dibutuhkan oleh Supabase)
     implementation("io.ktor:ktor-client-android:2.3.6")
+
 
     // Testing
     testImplementation("junit:junit:4.13.2")

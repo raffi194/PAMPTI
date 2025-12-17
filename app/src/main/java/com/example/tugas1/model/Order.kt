@@ -14,7 +14,8 @@ data class Order(
     val totalPrice: Double,
     val status: String,
     // Kita akan mengisi list ini secara manual setelah mengambil data
-    var items: List<OrderItem> = emptyList()
+    var items: List<OrderItem> = emptyList(),
+    val isReviewed: Boolean = false
 )
 
 @Serializable

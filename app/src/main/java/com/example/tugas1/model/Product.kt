@@ -1,25 +1,49 @@
 package com.example.tugas1.model
 
+
+import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.datetime.Instant // Gunakan Instant untuk tipe data timestamp
 
+
+/**
+ * Mewakili struktur data produk yang dibaca dari database.
+ * Digunakan untuk menampilkan produk di aplikasi.
+ */
 @Serializable
 data class Product(
     val id: String,
     val name: String,
     val price: Double,
 
-    // 1. Buat non-nullable dan beri nilai default jika Anda ingin selalu ada teks
+
+    // Dibuat non-nullable dengan nilai default agar aman saat ditampilkan.
     val description: String = "Tidak ada deskripsi.",
 
-    // 2. Gunakan @SerialName untuk konsistensi
+
+    // Gunakan @SerialName jika nama kolom di database berbeda (snake_case vs camelCase).
     @SerialName("image_url")
-    val imageUrl: String?, // Tetap nullable karena gambar bisa saja tidak ada
+    val imageUrl: String?, // Dibuat nullable karena gambar bisa saja tidak ada.
+
 
     val category: String?,
 
-    // 3. Gunakan tipe data yang benar untuk timestamp
+
+    // Gunakan tipe data Instant untuk kolom timestamp/timestamptz.
     @SerialName("created_at")
     val createdAt: Instant
+)
+
+
+/**
+ * Mewakili struktur data yang akan dikirim ke database saat membuat produk baru.
+ * Hanya berisi kolom yang perlu diisi secara manual.
+ */
+@Serializable
+data class ProductToInsert(
+    val name: String,
+    val price: Double,
+    val description: String,
+    @SerialName("image_url")
+    val imageUrl: String
 )

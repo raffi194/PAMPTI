@@ -4,14 +4,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.*
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.tugas1.ui.LoginScreen
+import com.example.tugas1.ui.RegisterScreen
 import com.example.tugas1.ui.nav.AppBottomNavigation
 import com.example.tugas1.ui.pages.*
 import com.example.tugas1.ui.viewmodel.ChatViewModel
+import com.example.tugas1.viewmodel.AuthViewModel
+import com.example.tugas1.viewmodel.ProductViewModel
+import com.example.tugas1.viewmodel.ProfileViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,8 +41,11 @@ class MainActivity : ComponentActivity() {
 fun MyApp() {
     val navController = rememberNavController()
 
-    // ✅ SATU ViewModel CHAT untuk semua halaman
+    // Inisialisasi semua ViewModel di level tertinggi
+    val authViewModel: AuthViewModel = viewModel()
+    val profileViewModel: ProfileViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
+    val productViewModel: ProductViewModel = viewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -43,49 +59,109 @@ fun MyApp() {
             }
         }
     ) { innerPadding ->
-
         NavHost(
             navController = navController,
-            startDestination = "dashboard",
+            startDestination = "login",
             modifier = Modifier.padding(innerPadding)
         ) {
 
-            composable("dashboard") {
-                DashboardScreen(navController)
-            }
-
-    NavHost(
-        navController = navController,
-        startDestination = "auth_graph",
-        modifier = modifier
-    ) {
-        // --- Graph untuk Autentikasi (Login/Register) ---
-        navigation(startDestination = "login", route = "auth_graph") {
+            // ===== GRUP AUTH =====
             composable("login") { LoginScreen(navController, authViewModel) }
             composable("register") { RegisterScreen(navController, authViewModel) }
-        }
 
-        // --- Graph Utama Aplikasi (Setelah Login) ---
-        navigation(startDestination = "dashboard", route = "main_graph") {
-            composable("dashboard") { DashboardScreen(navController, productViewModel) }
-            composable("order_history") { OrderHistoryScreen(navController) }
-            composable("chat") { /* TODO: Buat ChatScreen */ }
-            composable("order_success") {
-                OrderSuccessScreen(navController)
+            // ===== GRUP MENU UTAMA =====
+            composable("dashboard") {
+                DashboardScreen(navController = navController, productViewModel = productViewModel)
             }
-
+            composable("cart") {
+                CartScreen(navController = navController, productViewModel = productViewModel)
+            }
+            composable("order_history") {
+                OrderHistoryScreen(navController = navController, productViewModel = productViewModel)
+            }
+            composable("chat") {
+                ChatScreen(navController, chatViewModel)
+            }
             composable("profile") {
                 ProfileScreen(
                     navController = navController,
-                    chatViewModel = chatViewModel
+                    profileViewModel = profileViewModel,
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.navigate("login") {
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                        }
+                    }
+
+                )
+            }
+            composable("edit_profile") {
+                EditProfileScreen(
+                    navController = navController,
+                    profileViewModel = profileViewModel
                 )
             }
 
-            // ❗ Chat detail TANPA bottom nav
+            // ===== GRUP PROSES & DETAIL =====
+            composable("create_product") {
+                CreateProductScreen(navController = navController, productViewModel = productViewModel)
+            }
+            composable("checkout") {
+                CheckoutScreen(navController = navController, productViewModel = productViewModel)
+            }
+            composable("order_success") {
+                OrderSuccessScreen(navController)
+            }
             composable("chat_detail") {
-                ChatDetailScreen(
+                ChatDetailScreen(navController = navController, chatViewModel = chatViewModel)
+            }
+
+            // ================================================================
+            // === INI BAGIAN YANG HILANG & MENYEBABKAN CRASH ===
+            // Mendaftarkan rute detail produk dengan argumen "productId"
+            // ================================================================
+            composable(
+                route = "product_detail/{productId}",
+                arguments = listOf(navArgument("productId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId")
+                ProductDetailScreen(
                     navController = navController,
-                    chatViewModel = chatViewModel
+                    productId = productId,
+                    productViewModel = productViewModel
+                )
+            }
+            // ================================================================
+
+            // ===== GRUP REVIEW =====
+            composable(
+                route = "submit_review/{orderId}/{productId}",
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("productId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: return@composable
+                val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
+                SubmitReviewScreen(
+                    navController = navController,
+                    orderId = orderId,
+                    productId = productId
+                )
+            }
+            composable(
+                route = "review_result/{orderId}/{productId}",
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("productId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: return@composable
+                val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
+                ReviewResultScreen(
+                    navController = navController,
+                    orderId = orderId,
+                    productId = productId
                 )
             }
         }

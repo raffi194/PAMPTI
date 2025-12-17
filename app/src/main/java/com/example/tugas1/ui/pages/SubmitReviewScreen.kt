@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,11 +34,13 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.tugas1.viewmodel.ReviewViewModel
 import kotlinx.coroutines.launch
 
-// --- Composable Utama untuk Layar Tulis Ulasan ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubmitReviewScreen(navController: NavController, orderId: String) {
-    // DITAMBAHKAN: Inisialisasi ViewModel, states, dan context
+fun SubmitReviewScreen(
+    navController: NavController,
+    orderId: String,
+    productId: String // <-- Pastikan ini ada
+) {
     val reviewViewModel: ReviewViewModel = viewModel()
     val isLoading by reviewViewModel.isLoading
     val errorMessage by reviewViewModel.errorMessage
@@ -47,27 +48,19 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // States untuk menampung input dari pengguna
     var rating by remember { mutableIntStateOf(0) }
     var comment by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
-    // Launcher untuk memilih gambar dari galeri (tidak berubah)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents(),
-        onResult = { uris: List<Uri> ->
-            selectedImages = uris
-        }
+        onResult = { uris: List<Uri> -> selectedImages = uris }
     )
 
-    // DITAMBAHKAN: Menampilkan pesan error jika ada menggunakan Snackbar
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = it,
-                    duration = SnackbarDuration.Long
-                )
+                snackbarHostState.showSnackbar(message = it, duration = SnackbarDuration.Long)
             }
         }
     }
@@ -89,33 +82,32 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
                 )
             )
         },
-        // Tombol Kirim di bagian bawah
         bottomBar = {
             Button(
-                // DIUBAH: onClick sekarang memanggil ViewModel dengan semua parameter yang benar
                 onClick = {
                     reviewViewModel.submitReview(
                         context = context,
                         orderId = orderId,
+                        productId = productId, // <-- Diteruskan ke ViewModel
                         rating = rating,
                         comment = comment,
                         imageUris = selectedImages,
                         onComplete = { success ->
-                            // Navigasi kembali HANYA jika submit berhasil
                             if (success) {
-                                navController.popBackStack()
+                                navController.navigate(
+                                    "review_result/$rating/${Uri.encode(comment)}"
+                                ) {
+                                    popUpTo("order_history") { inclusive = false }
+                                }
                             }
-                            // Jika gagal, Snackbar akan menampilkan pesan error.
                         }
                     )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                // DIUBAH: Tombol dinonaktifkan saat loading atau rating belum diisi
                 enabled = rating > 0 && !isLoading
             ) {
-                // DIUBAH: Menampilkan CircularProgressIndicator saat loading
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
                 } else {
@@ -135,14 +127,17 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
             Text("Pesanan ID: $orderId", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 1. Komponen Rating Bintang
+            // ======================================================================
+            // BAGIAN INI SEKARANG PASTI BENAR, KARENA DEFINISINYA ADA DI BAWAH
+            // ======================================================================
             StarRatingSelector(
                 rating = rating,
                 onRatingChange = { newRating -> rating = newRating }
             )
+            // ======================================================================
+
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 2. Komponen Text Field untuk Komentar
             OutlinedTextField(
                 value = comment,
                 onValueChange = { comment = it },
@@ -154,7 +149,6 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. Komponen Upload Foto
             Text(
                 "Tambahkan Foto Produk",
                 style = MaterialTheme.typography.titleMedium,
@@ -172,7 +166,9 @@ fun SubmitReviewScreen(navController: NavController, orderId: String) {
 }
 
 
-// --- Composable untuk memilih rating bintang --- (Tidak Berubah)
+// ========================================================================================
+// --- PERBAIKAN: Pastikan definisi Composable ini ada di dalam file ---
+// ========================================================================================
 @Composable
 fun StarRatingSelector(
     rating: Int,
@@ -196,7 +192,9 @@ fun StarRatingSelector(
     }
 }
 
-// --- Composable untuk mengunggah dan menampilkan gambar --- (Tidak Berubah)
+// ========================================================================================
+// --- PERBAIKAN: Pastikan definisi Composable ini juga ada di dalam file ---
+// ========================================================================================
 @Composable
 fun ImageUploader(
     selectedImages: List<Uri>,
@@ -206,7 +204,6 @@ fun ImageUploader(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Tombol untuk menambah gambar
         item {
             Box(
                 modifier = Modifier
@@ -229,7 +226,6 @@ fun ImageUploader(
             }
         }
 
-        // Daftar gambar yang sudah dipilih
         items(selectedImages) { uri ->
             Image(
                 painter = rememberAsyncImagePainter(uri),
