@@ -4,26 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
 import androidx.navigation.compose.*
-import androidx.navigation.navArgument
-import com.example.tugas1.ui.LoginScreen
-import com.example.tugas1.ui.RegisterScreen
 import com.example.tugas1.ui.nav.AppBottomNavigation
 import com.example.tugas1.ui.pages.*
-import com.example.tugas1.viewmodel.AuthViewModel
-import com.example.tugas1.viewmodel.ProductViewModel
-import com.example.tugas1.viewmodel.ProfileViewModel
-// DITAMBAHKAN: Baris import yang hilang untuk ProductDetailScreen
-import com.example.tugas1.ui.pages.ProductDetailScreen
+import com.example.tugas1.ui.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,9 +27,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MyApp() {
     val navController = rememberNavController()
-    val authViewModel: AuthViewModel = viewModel()
-    val profileViewModel: ProfileViewModel = viewModel()
-    val isAuthenticated by authViewModel.authState.collectAsState()
+
+    // ✅ SATU ViewModel CHAT untuk semua halaman
+    val chatViewModel: ChatViewModel = viewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -51,41 +39,20 @@ fun MyApp() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                AppBottomNavigation(navController = navController)
+                AppBottomNavigation(navController)
             }
         }
     ) { innerPadding ->
-        AppNavHost(
-            modifier = Modifier.padding(innerPadding),
+
+        NavHost(
             navController = navController,
-            authViewModel = authViewModel,
-            profileViewModel = profileViewModel
-        )
-    }
+            startDestination = "dashboard",
+            modifier = Modifier.padding(innerPadding)
+        ) {
 
-    LaunchedEffect(isAuthenticated) {
-        if (isAuthenticated) {
-            profileViewModel.loadProfile()
-            if (navController.currentDestination?.parent?.route != "main_graph") {
-                navController.navigate("main_graph") { popUpTo(0) }
+            composable("dashboard") {
+                DashboardScreen(navController)
             }
-        } else {
-            profileViewModel.clearProfile()
-            if (navController.currentDestination?.parent?.route != "auth_graph") {
-                navController.navigate("auth_graph") { popUpTo(0) }
-            }
-        }
-    }
-}
-
-@Composable
-fun AppNavHost(
-    modifier: Modifier = Modifier,
-    navController: androidx.navigation.NavHostController,
-    authViewModel: AuthViewModel,
-    profileViewModel: ProfileViewModel
-) {
-    val productViewModel: ProductViewModel = viewModel()
 
     NavHost(
         navController = navController,
@@ -110,46 +77,16 @@ fun AppNavHost(
             composable("profile") {
                 ProfileScreen(
                     navController = navController,
-                    profileViewModel = profileViewModel,
-                    onLogout = { authViewModel.logout() }
+                    chatViewModel = chatViewModel
                 )
             }
 
-            composable("cart") { CartScreen(navController, productViewModel) }
-            // Perbaikan kecil: Pastikan CheckoutScreen dipanggil dengan benar
-            composable("checkout") { CheckoutScreen(navController, productViewModel) }
-
-            composable("edit_profile") {
-                EditProfileScreen(
+            // ❗ Chat detail TANPA bottom nav
+            composable("chat_detail") {
+                ChatDetailScreen(
                     navController = navController,
-                    profileViewModel = profileViewModel
+                    chatViewModel = chatViewModel
                 )
-            }
-
-            // ... di dalam NavHost di MainActivity.kt
-            composable(
-                route = "product_detail/{productId}", // Rute dengan argumen
-                arguments = listOf(navArgument("productId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val productId = backStackEntry.arguments?.getString("productId")
-                if (productId != null) {
-                    // SEKARANG TIDAK ERROR LAGI karena sudah di-import
-                    ProductDetailScreen(
-                        navController = navController,
-                        productViewModel = productViewModel,
-                        productId = productId
-                    )
-                }
-            }
-
-            composable(
-                route = "submit_review/{orderId}",
-                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val orderId = backStackEntry.arguments?.getString("orderId")
-                if (orderId != null) {
-                    SubmitReviewScreen(navController = navController, orderId = orderId)
-                }
             }
         }
     }

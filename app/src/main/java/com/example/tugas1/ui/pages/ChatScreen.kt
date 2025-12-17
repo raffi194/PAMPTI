@@ -1,87 +1,61 @@
 package com.example.tugas1.ui.pages
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.*
 import androidx.navigation.NavHostController
+import coil.compose.rememberAsyncImagePainter
+import com.example.tugas1.ui.viewmodel.ChatViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(navController: NavHostController) {
-
-    // MENYIMPAN LIST PESAN
-    var messages by remember { mutableStateOf(listOf<String>()) }
-
-    // FIELD INPUT
-    var input by remember { mutableStateOf("") }
-
+fun ChatScreen(
+    navController: NavHostController,
+    chatViewModel: ChatViewModel
+) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Chat") })
         }
-    ) { paddingValues ->
+    ) { padding ->
 
-        Column(
+        Row(
             modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
+                .padding(padding)
+                .fillMaxWidth()
+                .clickable { navController.navigate("chat_detail") }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // === LIST CHAT ===
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                items(messages) { msg ->
-                    Surface(
-                        tonalElevation = 2.dp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                    ) {
-                        Text(
-                            msg,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-            }
+            Image(
+                painter = rememberAsyncImagePainter(
+                    "https://www.centralparkjakarta.com/upload/tenant/0h&m.jpg"
+                ),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp).clip(CircleShape)
+            )
 
-            // === INPUT BOX + SEND BUTTON ===
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Spacer(Modifier.width(12.dp))
 
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") }
+            Column(Modifier.weight(1f)) {
+                Text("H&M", fontWeight = FontWeight.Bold)
+                Text(
+                    chatViewModel.lastMessage(),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
-
-                Spacer(Modifier.width(12.dp))
-
-                Button(
-                    onClick = {
-                        if (input.isNotEmpty()) {
-                            messages = messages + input   // tambahkan pesan baru
-                            input = ""                     // reset input
-                        }
-                    }
-                ) {
-                    Text("Send")
-                }
             }
+
+            Text("Hari ini", fontSize = 12.sp)
         }
     }
 }
