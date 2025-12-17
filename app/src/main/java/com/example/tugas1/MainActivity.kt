@@ -34,11 +34,7 @@ fun MyApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // ✅ Bottom nav hanya tampil di halaman utama
-    val showBottomBar = currentRoute in listOf(
-        "dashboard",
-        "chat"
-    )
+    val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat")
 
     Scaffold(
         bottomBar = {
@@ -58,8 +54,28 @@ fun MyApp() {
                 DashboardScreen(navController)
             }
 
-            composable("chat") {
-                ChatScreen(
+    NavHost(
+        navController = navController,
+        startDestination = "auth_graph",
+        modifier = modifier
+    ) {
+        // --- Graph untuk Autentikasi (Login/Register) ---
+        navigation(startDestination = "login", route = "auth_graph") {
+            composable("login") { LoginScreen(navController, authViewModel) }
+            composable("register") { RegisterScreen(navController, authViewModel) }
+        }
+
+        // --- Graph Utama Aplikasi (Setelah Login) ---
+        navigation(startDestination = "dashboard", route = "main_graph") {
+            composable("dashboard") { DashboardScreen(navController, productViewModel) }
+            composable("order_history") { OrderHistoryScreen(navController) }
+            composable("chat") { /* TODO: Buat ChatScreen */ }
+            composable("order_success") {
+                OrderSuccessScreen(navController)
+            }
+
+            composable("profile") {
+                ProfileScreen(
                     navController = navController,
                     chatViewModel = chatViewModel
                 )
