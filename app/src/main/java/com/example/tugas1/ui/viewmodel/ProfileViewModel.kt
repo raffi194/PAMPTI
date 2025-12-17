@@ -12,10 +12,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.seconds
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor() : ViewModel() {
+
+    /* -------------------- STATE -------------------- */
 
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile
@@ -26,118 +27,132 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    // 1. Blok init dihapus untuk mencegah pemanggilan otomatis
-    // init {
-    //     getProfile()
-    // }
 
-    // 2. Nama fungsi diubah dari getProfile menjadi loadProfile
+    /* -------------------- LOAD / READ -------------------- */
+
     fun loadProfile() {
         viewModelScope.launch {
             _loading.value = true
             _errorMessage.value = null
             try {
                 val userId = SupabaseClient.client.auth.currentUserOrNull()?.id
-                    ?: throw IllegalStateException("Pengguna tidak login")
+                    ?: throw IllegalStateException("User belum login")
 
-                val profileData: Profile? = SupabaseClient.client.postgrest
+                val profileData = SupabaseClient.client.postgrest
                     .from("profiles")
                     .select {
-                        filter {
-                            eq("id", userId)
-                        }
+                        filter { eq("id", userId) }
                     }
-                    .decodeSingleOrNull()
+                    .decodeSingleOrNull<Profile>()
 
                 if (profileData == null) {
-                    // Pastikan model Profile Anda memiliki parameter avatar_url
-                    val newProfile = Profile(id = userId, fullName = "Nama Belum Diatur", username = "username", avatar_url = null)
-                    SupabaseClient.client.postgrest.from("profiles").insert(newProfile)
+                    // INSERT jika profile belum ada
+                    val newProfile = Profile(
+                        id = userId,
+                        fullName = "Nama Belum Diatur",
+                        username = "username",
+                        avatar_url = null
+                    )
+
+                    SupabaseClient.client.postgrest
+                        .from("profiles")
+                        .insert(newProfile)
+
                     _profile.value = newProfile
                 } else {
                     _profile.value = profileData
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal mengambil profil: ${e.message}"
+                _errorMessage.value = e.message
             } finally {
                 _loading.value = false
             }
         }
     }
 
-    // 3. Fungsi clearProfile ditambahkan
-    fun clearProfile() {
-        _profile.value = null
-        _errorMessage.value = null
-    }
+
+    /* -------------------- UPDATE PROFILE -------------------- */
 
     fun updateProfile(fullName: String, username: String) {
         viewModelScope.launch {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return@launch
-                val updates = mapOf(
-                    "full_name" to fullName,
-                    "username" to username
-                )
-                SupabaseClient.client.postgrest.from("profiles").update(updates) {
-                    filter {
-                        eq("id", userId)
+                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id
+                    ?: return@launch
+
+                SupabaseClient.client.postgrest
+                    .from("profiles")
+                    .update(
+                        mapOf(
+                            "full_name" to fullName,
+                            "username" to username
+                        )
+                    ) {
+                        filter { eq("id", userId) }
                     }
-                }
-                // Panggil loadProfile untuk sinkronisasi setelah update
+
+                // refresh data
                 loadProfile()
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal memperbarui profil: ${e.message}"
+                _errorMessage.value = e.message
             } finally {
                 _loading.value = false
             }
         }
     }
+
+
+    /* -------------------- UPLOAD AVATAR (STORAGE) -------------------- */
 
     fun uploadAvatar(imageBytes: ByteArray) {
         viewModelScope.launch {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return@launch
-                val filePath = "$userId/avatar.png"
+                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id
+                    ?: return@launch
 
-                val publicUrl = SupabaseClient.client.storage.from("avatars").publicUrl(filePath)
+                // 🔹 gunakan file unik supaya cache tidak mengganggu
+                val filePath = "$userId/avatar_${System.currentTimeMillis()}.png"
 
-                SupabaseClient.client.storage.from("avatars").upload(
-                    path = filePath,
-                    data = imageBytes,
-                    upsert = true
-                )
+                // Upload ke Supabase Storage
+                SupabaseClient.client.storage
+                    .from("avatars")
+                    .upload(
+                        path = filePath,
+                        data = imageBytes,
+                        upsert = true
+                    )
 
-                val updates = mapOf("avatar_url" to publicUrl) // Simpan URL lengkap
-                SupabaseClient.client.postgrest.from("profiles").update(updates) {
-                    filter { eq("id", userId) }
-                }
+                // Ambil public URL
+                val publicUrl = SupabaseClient.client.storage
+                    .from("avatars")
+                    .publicUrl(filePath)
 
-                // Panggil loadProfile untuk sinkronisasi setelah update
+                // Simpan URL ke database
+                SupabaseClient.client.postgrest
+                    .from("profiles")
+                    .update(mapOf("avatar_url" to publicUrl)) {
+                        filter { eq("id", userId) }
+                    }
+
+                // Refresh profile agar UI otomatis update
                 loadProfile()
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal mengunggah avatar: ${e.message}"
+                _errorMessage.value = e.message
             } finally {
                 _loading.value = false
             }
         }
     }
 
-    // Fungsi ini tidak lagi seefisien menyimpan URL publik langsung, tapi bisa dipertahankan jika perlu
-    fun getAvatarPublicUrl(path: String): StateFlow<String?> {
-        val urlState = MutableStateFlow<String?>(null)
-        viewModelScope.launch {
-            try {
-                val url = SupabaseClient.client.storage.from("avatars").createSignedUrl(path, 300.seconds)
-                urlState.value = url
-            } catch (e: Exception) {
-                urlState.value = null
-            }
-        }
-        return urlState
+
+    /* -------------------- CLEAR STATE (LOGOUT) -------------------- */
+
+    fun clearProfile() {
+        _profile.value = null
+        _loading.value = false
+        _errorMessage.value = null
     }
 }
